@@ -335,19 +335,21 @@ const main = async () => {
 			// TODO: Opensea API for collection deets?
 			
 			// POST payload to Discord
-			if (discordPayload.length) {
+			if (discordPayload.embeds.length) {
 				axios
 				.post(DISCORD_API_ENDPOINT, discordPayload)
 				.then(res => {
-					console.log(`statusCode: ${res.status}`);
-					console.log(res);
+					// console.log(`statusCode: ${res.status}`);
+					// console.log(res);
+					console.info('Announced new contracts: ' + discordPayload.embeds.length);
 				})
 				.catch(error => {
 					console.error(error);
+					console.error('Attempted to announce new contracts: ' + discordPayload.embeds.length);
+					console.error(discordPayload);
 				});
 
-				console.log(JSON.stringify(discordPayload));
-				console.info('Announced new contracts: ' + discordPayload.length);
+				// console.log(JSON.stringify(discordPayload));
 			} else {
 				console.info('No new contracts to announce');
 			}
