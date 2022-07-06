@@ -1,2 +1,4 @@
+.cache
 .env
+.scratch.js
 node_modules
