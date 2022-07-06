@@ -8,6 +8,8 @@ let scanERC721FreeMintTransactions = [];
 let scanERC721FreeMintTransactionTransfers = [];
 let trendingERC721FreeMintMatches = [];
 
+let contractHistory = [];
+
 require('dotenv').config()
 
 const fs = require('fs');
@@ -43,16 +45,44 @@ const padToBytes32 = (x) => {
 
 const decodeX = (x, t) => ethers.utils.defaultAbiCoder.decode([t], x)[0];
 
-const getContractABI = (_address) => {
-	let path = `./.cache/abi/${_address}.json`;
-
+const getFile = (_path) => {
 	try {
-		const content = fs.readFileSync(path, 'utf8');
+		const content = fs.readFileSync(_path, 'utf8');
 		return content;
 	} catch (err) {
 		// console.error(err);
 		return false;
 	}
+};
+
+const getContractHistory = () => {
+	let path = `./.cache/contract-history.json`;
+	return getFile(path);
+};
+
+const getContractABI = (_address) => {
+	let path = `./.cache/abi/${_address}.json`;
+	return getFile(path);
+};
+
+const putFile = (_path, _data) => {
+	fs.writeFile(_path, _data, function (err, data) {
+		if (err) {
+			console.log(err);
+			return false;
+		}
+		// console.log(data);
+	});
+};
+
+const putContractABI = async (_address, _data) => {
+	let path = `./.cache/abi/${_address}.json`;
+	return putFile(path, _data);
+};
+
+const putContractHistory = (_data) => {
+	let path = `./.cache/contract-history.json`;
+	return putFile(path, _data);
 };
 
 const requestContractABI = (_address) => {
@@ -71,17 +101,6 @@ const requestContractABI = (_address) => {
 			// console.error(error);
 			return false;
 		});
-};
-
-const putContractABI = async (_address, _data) => {
-	let path = `./.cache/abi/${_address}.json`;
-	fs.writeFile(path, _data, function (err, data) {
-		if (err) {
-			console.log(err);
-			return false;
-		}
-		// console.log(data);
-	});
 };
 
 const main = async () => {
@@ -204,6 +223,7 @@ const main = async () => {
 									// console.log(result);
 
 									let functionName = result.name.toLowerCase();
+									console.log('functionName: ' + functionName);
 
 									const functionBlacklistResult = functionNameBlacklistPattern.findIndex(a => {
 										const test = functionName.indexOf(a)
@@ -228,6 +248,8 @@ const main = async () => {
 									console.error('ABI parse error (ethers.js): ' + transaction.to.address);
 								}
 							}
+						} else {
+							console.error('ABI lookup failed: ' + transaction.to.address);
 						}
 					} else {
 						scanERC721FreeMintTransactions[existsWithId]++;
@@ -288,26 +310,33 @@ const main = async () => {
 			};
 
 			trendingERC721FreeMintMatches.forEach(idx => {
-				console.log(`R: ${idx} / TX: ${scanERC721FreeMintTransactions[idx]} / Tfers: ${scanERC721FreeMintTransactionTransfers[idx]} / Addr: ${scanERC721FreeMint[idx]}`);
-				// console.log('-'.repeat(80));
-				// console.log(`${URI_BLOCK_EXPLORER_ADDRESS}${scanERC721FreeMint[idx]}#transactions`);
-				console.log('-'.repeat(80));
+				const contractHistoryExists = contractHistory.findIndex(a => a === scanERC721FreeMint[idx]);
+				// console.log('contractHistoryExists: ' + contractHistoryExists);
+				if (contractHistoryExists < 0) {
+					contractHistory.push(scanERC721FreeMint[idx]);
 
-				discordPayload.embeds.push({
-					title: scanERC721FreeMint[idx],
-					description: `Transactions: ${scanERC721FreeMintTransactions[idx]} / Transfers: ${scanERC721FreeMintTransactionTransfers[idx]}`,
-					url: `${URI_BLOCK_EXPLORER_ADDRESS}${scanERC721FreeMint[idx]}`,
-					// TODO: Opensea API - collection lookup needed
-					// image: {
-					// 	url: ''
-					// }
-				});
+					console.log(`R: ${idx} / TX: ${scanERC721FreeMintTransactions[idx]} / Tfers: ${scanERC721FreeMintTransactionTransfers[idx]} / Addr: ${scanERC721FreeMint[idx]}`);
+					// console.log('-'.repeat(80));
+					// console.log(`${URI_BLOCK_EXPLORER_ADDRESS}${scanERC721FreeMint[idx]}#transactions`);
+					console.log('-'.repeat(80));
+
+					discordPayload.embeds.push({
+						title: scanERC721FreeMint[idx],
+						description: `Transactions: ${scanERC721FreeMintTransactions[idx]} / Transfers: ${scanERC721FreeMintTransactionTransfers[idx]}`,
+						url: `${URI_BLOCK_EXPLORER_ADDRESS}${scanERC721FreeMint[idx]}`,
+						// TODO: Opensea API - collection lookup needed
+						// image: {
+						// 	url: ''
+						// }
+					});
+				}
 			});
 
 			// TODO: Opensea API for collection deets?
 			
 			// POST payload to Discord
-			axios
+			if (discordPayload.length) {
+				axios
 				.post(DISCORD_API_ENDPOINT, discordPayload)
 				.then(res => {
 					console.log(`statusCode: ${res.status}`);
@@ -317,9 +346,14 @@ const main = async () => {
 					console.error(error);
 				});
 
-			// console.log(JSON.stringify(discordPayload));
+				console.log(JSON.stringify(discordPayload));
+				console.info('Announced new contracts: ' + discordPayload.length);
+			} else {
+				console.info('No new contracts to announce');
+			}
 
-			console.info('Dataset processed');
+			// Persist current contract history
+			putContractHistory(JSON.stringify(contractHistory));
 
 			// Clear dataset for next run
 			scanERC721FreeMint = [];
