@@ -157,8 +157,11 @@ const main = async () => {
 				let transferMatchCount = 0;
 	
 				transaction.logs.forEach(log => {
+
+					// ERC-721
 					if (
-						// First param should be keckak256() of `Transfer` event
+
+						// First param should be keckak256() of `Transfer(address,address,uint256)` event
 						log.topics[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
 		
 						// From null 0x0
@@ -179,12 +182,46 @@ const main = async () => {
 		
 							const suspectedTokenId = decodeX(log.topics[3], "uint256");
 							// console.log(log.topics[3]);
-							// console.log('suspectedTokenId: ' + suspectedTokenId);
+							// console.log('ERC-721 suspectedTokenId: ' + suspectedTokenId);
 
 							// The token ID is under `maxTransferTokenIdValue`
 							if (suspectedTokenId < maxTransferTokenIdValue) {
 								transferMatchCount++;
 							}
+						}
+					}
+					
+					// ERC-1155
+					else if (
+						(
+							// First param should be keckak256() of `TransferSingle(address,address,address,uint256,uint256)` event
+							log.topics[0] === '0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62'
+
+							// First param should be keckak256() of `TransferBatch(address,address,address,uint256[],uint256[])` event
+							|| log.topics[0] === '0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb'
+						)
+
+						// From null 0x0
+						&& log.topics[2] === '0x0000000000000000000000000000000000000000000000000000000000000000'
+					) {
+		
+						const recipientByte32 = padToBytes32(transaction.from.address);
+						// console.log('recipientByte32: ' + recipientByte32);
+						if (log.topics[1] === recipientByte32 && log.topics[3] === recipientByte32) {
+							// console.log('Pattern match: `ERC721FreeMint`');
+							// console.log('Contract: ' + transaction.to.address);
+							// console.log('topics[2] is sender address');
+		
+							const suspectedTokenId = decodeX(log.topics[4], "uint256");
+							console.log(log.topics[4]);
+							console.log('ERC-1155 suspectedTokenId:');
+							console.log(suspectedTokenId);
+
+							// The token ID is under `maxTransferTokenIdValue`
+							// if (suspectedTokenId < maxTransferTokenIdValue) {
+							// 	transferMatchCount++;
+							// }
+							transferMatchCount++;
 						}
 					}
 				});
