@@ -210,9 +210,12 @@ const main = async () => {
 							// console.log('topics[2] is sender address');
 		
 							console.log('ERC-1155 TransferSingle suspectedTokenId:');
-							console.log(log.topics[4]);
-							const suspectedTokenId = decodeX(log.topics[4], "uint256");
-							console.log(suspectedTokenId);
+							console.log(log.topics);
+							console.log(log.inputData);
+							let result = contractInterface.parseTransaction({data: log.inputData});
+							console.log(result);
+							// const suspectedTokenId = decodeX(log.topics[4], "uint256");
+							// console.log(suspectedTokenId);
 
 							// The token ID is under `maxTransferTokenIdValue`
 							// if (suspectedTokenId < maxTransferTokenIdValue) {
@@ -241,9 +244,12 @@ const main = async () => {
 							// console.log('topics[2] is sender address');
 		
 							console.log('ERC-1155 TransferBatch suspectedTokenId:');
-							console.log(log.topics[4]);
-							const suspectedTokenId = decodeX(log.topics[4], "uint256");
-							console.log(suspectedTokenId);
+							console.log(log.topics);
+							console.log(log.inputData);
+							let result = contractInterface.parseTransaction({data: log.inputData});
+							console.log(result);
+							// const suspectedTokenId = decodeX(log.topics[4], "uint256");
+							// console.log(suspectedTokenId);
 
 							// The token ID is under `maxTransferTokenIdValue`
 							// if (suspectedTokenId < maxTransferTokenIdValue) {
