@@ -3,10 +3,10 @@ let lastBlockHeight = 0;
 let etherscanAPIIntervalRateCount = 0;
 let etherscanAPIIntervalRateLimitPerSecond = 5;
 
-let scanERC721FreeMint = [];
-let scanERC721FreeMintTransactions = [];
-let scanERC721FreeMintTransactionTransfers = [];
-let trendingERC721FreeMintMatches = [];
+let scanNFTFreeMint = [];
+let scanNFTFreeMintTransactions = [];
+let scanNFTFreeMintTransactionTransfers = [];
+let trendingNFTFreeMintMatches = [];
 
 let contractLookup = [[],[]];
 let contractHistory = [];
@@ -238,7 +238,7 @@ const main = async () => {
 						const recipientByte32 = padToBytes32(transaction.from.address);
 						// console.log('recipientByte32: ' + recipientByte32);
 						if (log.topics[2] === recipientByte32) {
-							// console.log('Pattern match: `ERC721FreeMint`');
+							// console.log('Pattern match: `NFTFreeMint`');
 							// console.log('Contract: ' + transaction.to.address);
 							// console.log('topics[2] is sender address');
 		
@@ -267,7 +267,7 @@ const main = async () => {
 						const recipientByte32 = padToBytes32(transaction.from.address);
 						// console.log('recipientByte32: ' + recipientByte32);
 						if (log.topics[1] === recipientByte32 && log.topics[3] === recipientByte32) {
-							// console.log('Pattern match: `ERC721FreeMint`');
+							// console.log('Pattern match: `NFTFreeMint`');
 							// console.log('Contract: ' + transaction.to.address);
 							// console.log('topics[2] is sender address');
 		
@@ -299,7 +299,7 @@ const main = async () => {
 						const recipientByte32 = padToBytes32(transaction.from.address);
 						// console.log('recipientByte32: ' + recipientByte32);
 						if (log.topics[1] === recipientByte32 && log.topics[3] === recipientByte32) {
-							// console.log('Pattern match: `ERC721FreeMint`');
+							// console.log('Pattern match: `NFTFreeMint`');
 							// console.log('Contract: ' + transaction.to.address);
 							// console.log('topics[2] is sender address');
 		
@@ -335,7 +335,7 @@ const main = async () => {
 
 				// Ignore transactions with more than `maxTransfersPerTransaction` transfers
 				if (transferMatchCount && transferMatchCount <= maxTransfersPerTransaction) {
-					const existsWithId = scanERC721FreeMint.findIndex(address => address === transaction.to.address);
+					const existsWithId = scanNFTFreeMint.findIndex(address => address === transaction.to.address);
 					if (existsWithId < 0) {
 
 						// Lookup contract
@@ -359,10 +359,10 @@ const main = async () => {
 								});
 								// console.log('functionWhitelistResult: ' + functionWhitelistResult);
 								if (functionWhitelistResult >= 0) {
-									scanERC721FreeMintTransactions[scanERC721FreeMint.length] = 1;
-									scanERC721FreeMintTransactionTransfers[scanERC721FreeMint.length] = transferMatchCount;
+									scanNFTFreeMintTransactions[scanNFTFreeMint.length] = 1;
+									scanNFTFreeMintTransactionTransfers[scanNFTFreeMint.length] = transferMatchCount;
 
-									scanERC721FreeMint.push(transaction.to.address);
+									scanNFTFreeMint.push(transaction.to.address);
 									console.log('Matched: ' + transaction.to.address);
 								}
 							}
@@ -371,8 +371,8 @@ const main = async () => {
 						}
 						
 					} else {
-						scanERC721FreeMintTransactions[existsWithId]++;
-						scanERC721FreeMintTransactionTransfers[existsWithId] += transferMatchCount;
+						scanNFTFreeMintTransactions[existsWithId]++;
+						scanNFTFreeMintTransactionTransfers[existsWithId] += transferMatchCount;
 					}
 				}
 			}
@@ -384,39 +384,39 @@ const main = async () => {
 	if (sinceLastPollTime > intervalProcessMilliseconds) {
 
 		// Process dataset
-		if (scanERC721FreeMint.length) {
+		if (scanNFTFreeMint.length) {
 
-			console.log('Pattern match: `ERC721FreeMint`');
+			console.log('Pattern match: `NFTFreeMint`');
 			console.log('-'.repeat(80));
 
 			// Sort matches in descending order
-			let scanERC721FreeMintTransactionsDescending = [...scanERC721FreeMintTransactions];
-			scanERC721FreeMintTransactionsDescending.sort((a, b) => {
+			let scanNFTFreeMintTransactionsDescending = [...scanNFTFreeMintTransactions];
+			scanNFTFreeMintTransactionsDescending.sort((a, b) => {
 				let a1 = typeof a, b1 = typeof b;
 				return (a1 < b1 ? 1 : (a1 > b1 ? -1 : (a < b ? 1 : (a > b ? -1 : 0))));
 			});
 
-			let scanERC721FreeMintTransactionsRef = [...scanERC721FreeMintTransactions];
+			let scanNFTFreeMintTransactionsRef = [...scanNFTFreeMintTransactions];
 			
 			// Walk through the descending matches, for the correct index
-			for (let i = 0; i < scanERC721FreeMintTransactionsDescending.length; i++) {
-				let findValue = scanERC721FreeMintTransactionsDescending[i];
-				let result = scanERC721FreeMintTransactionsRef.findIndex(a => a === findValue);
+			for (let i = 0; i < scanNFTFreeMintTransactionsDescending.length; i++) {
+				let findValue = scanNFTFreeMintTransactionsDescending[i];
+				let result = scanNFTFreeMintTransactionsRef.findIndex(a => a === findValue);
 
 				// Empty the found index, to prevent cases where there are different matches, of the same count.
 				if (result >= 0) {
-					trendingERC721FreeMintMatches.push(result);
-					scanERC721FreeMintTransactionsRef[result] = 0;
+					trendingNFTFreeMintMatches.push(result);
+					scanNFTFreeMintTransactionsRef[result] = 0;
 				}
 
 				// Max result limit reached
-				if (trendingERC721FreeMintMatches.length == maxTrendingResults)
+				if (trendingNFTFreeMintMatches.length == maxTrendingResults)
 					break;
 			}
 
 			// Raw results as they were found
-			// scanERC721FreeMint.forEach((address, idx) => {
-			// 	console.log(`Result: ${idx} / Occurances: ${scanERC721FreeMintTransactions[idx]} / Contract: ${address}`);
+			// scanNFTFreeMint.forEach((address, idx) => {
+			// 	console.log(`Result: ${idx} / Occurances: ${scanNFTFreeMintTransactions[idx]} / Contract: ${address}`);
 			// 	// console.log('-'.repeat(80));
 			// 	// console.log(`${URI_BLOCK_EXPLORER_ADDRESS}${address}#transactions`);
 			// 	console.log('-'.repeat(80));
@@ -428,21 +428,21 @@ const main = async () => {
 				embeds: []
 			};
 
-			trendingERC721FreeMintMatches.forEach(idx => {
-				const contractHistoryExists = contractHistory.findIndex(a => a === scanERC721FreeMint[idx]);
+			trendingNFTFreeMintMatches.forEach(idx => {
+				const contractHistoryExists = contractHistory.findIndex(a => a === scanNFTFreeMint[idx]);
 				// console.log('contractHistoryExists: ' + contractHistoryExists);
 				if (contractHistoryExists < 0) {
-					contractHistory.push(scanERC721FreeMint[idx]);
+					contractHistory.push(scanNFTFreeMint[idx]);
 
-					console.log(`R: ${idx} / TX: ${scanERC721FreeMintTransactions[idx]} / Tfers: ${scanERC721FreeMintTransactionTransfers[idx]} / Addr: ${scanERC721FreeMint[idx]}`);
+					console.log(`R: ${idx} / TX: ${scanNFTFreeMintTransactions[idx]} / Tfers: ${scanNFTFreeMintTransactionTransfers[idx]} / Addr: ${scanNFTFreeMint[idx]}`);
 					// console.log('-'.repeat(80));
-					// console.log(`${URI_BLOCK_EXPLORER_ADDRESS}${scanERC721FreeMint[idx]}#transactions`);
+					// console.log(`${URI_BLOCK_EXPLORER_ADDRESS}${scanNFTFreeMint[idx]}#transactions`);
 					console.log('-'.repeat(80));
 
 					discordPayload.embeds.push({
-						title: scanERC721FreeMint[idx],
-						description: `Transactions: ${scanERC721FreeMintTransactions[idx]} / Transfers: ${scanERC721FreeMintTransactionTransfers[idx]}`,
-						url: `${URI_BLOCK_EXPLORER_ADDRESS}${scanERC721FreeMint[idx]}`,
+						title: scanNFTFreeMint[idx],
+						description: `Transactions: ${scanNFTFreeMintTransactions[idx]} / Transfers: ${scanNFTFreeMintTransactionTransfers[idx]}`,
+						url: `${URI_BLOCK_EXPLORER_ADDRESS}${scanNFTFreeMint[idx]}`,
 						// TODO: Opensea API - collection lookup needed
 						// image: {
 						// 	url: ''
@@ -477,10 +477,10 @@ const main = async () => {
 			putContractHistory(JSON.stringify(contractHistory));
 
 			// Clear dataset for next run
-			scanERC721FreeMint = [];
-			scanERC721FreeMintTransactions = [];
-			scanERC721FreeMintTransactionTransfers = [];
-			trendingERC721FreeMintMatches = [];
+			scanNFTFreeMint = [];
+			scanNFTFreeMintTransactions = [];
+			scanNFTFreeMintTransactionTransfers = [];
+			trendingNFTFreeMintMatches = [];
 		} else {
 			console.warn('No results within polling window');
 		}
