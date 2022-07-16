@@ -8,6 +8,7 @@ let scanERC721FreeMintTransactions = [];
 let scanERC721FreeMintTransactionTransfers = [];
 let trendingERC721FreeMintMatches = [];
 
+let contractLookup = [[],[]];
 let contractHistory = [];
 
 require('dotenv').config()
@@ -103,6 +104,67 @@ const requestContractABI = (_address) => {
 		});
 };
 
+const getContract = (_address) => {
+
+	// Look for cache from previous contract lookup
+	const contractLookupResult = contractLookup[0].findIndex(a => a === _address);
+	if (contractLookupResult >= 0) {
+		return contractLookup[1][contractLookupResult];
+	}
+
+	let contractABIRaw, contractABI, contractInterface;
+
+	let contract = {
+		abiRaw: null,
+		abi: null,
+		interface: null,
+	};
+
+	// Lookup contract ABI
+	contractABIRaw = getContractABI(_address);
+	if (
+		!contractABIRaw
+
+		// Avoid API abuse
+		&& etherscanAPIIntervalRateCount < etherscanAPIIntervalRateLimitPerSecond
+	) {
+		contractABIRaw = requestContractABI(_address);
+		etherscanAPIIntervalRateCount++;
+	}
+
+	// Check `inputData` against ABI, for function name patterns (i.e. contains `mint`)
+	if (contractABIRaw) {
+		contract.abiRaw = contractABIRaw;
+
+		try {
+			contractABI = JSON.parse(contractABIRaw);
+		} catch (err) {
+			console.error('ABI parse error: ' + _address);
+			console.error(err);
+		}
+		if (contractABI) {
+			contract.abi = contractABI;
+			
+			// console.log('inputData: ' + transaction.inputData);
+			contractInterface = new ethers.utils.Interface(contractABI);
+			if (contractInterface) {
+				contract.interface = contractInterface;
+			} else {
+				console.error('ABI parse error (ethers.js): ' + _address);
+			}
+		}
+	} else {
+		console.error('ABI lookup failed: ' + _address);
+	}
+
+	// Cache results for future contract requests
+	const contractPos = contractLookup[0].length;
+	contractLookup[0][contractPos] = _address;
+	contractLookup[1][contractPos] = contract;
+
+	return contract;
+};
+
 const main = async () => {
 	let resp = await request(
 		GETH_GRAPHQL_ENDPOINT,
@@ -191,7 +253,7 @@ const main = async () => {
 						}
 					}
 					
-					// ERC-1155
+					// ERC-1155 - TransferSingle
 					else if (
 						(
 							// First param should be keckak256() of `TransferSingle(address,address,address,uint256,uint256)` event
@@ -209,23 +271,21 @@ const main = async () => {
 							// console.log('Contract: ' + transaction.to.address);
 							// console.log('topics[2] is sender address');
 		
-							console.log('ERC-1155 TransferSingle suspectedTokenId:');
-							console.log(log.topics);
-							console.log(log.inputData);
-							let result = contractInterface.parseTransaction({data: log.inputData});
-							console.log(result);
-							// const suspectedTokenId = decodeX(log.topics[4], "uint256");
-							// console.log(suspectedTokenId);
-
-							// The token ID is under `maxTransferTokenIdValue`
-							// if (suspectedTokenId < maxTransferTokenIdValue) {
-							// 	transferMatchCount++;-
-							// }
-							transferMatchCount++;
+							// console.log('ERC-1155 ('+transaction.to.address+') TransferSingle suspectedTokenId:');
+							const contract = getContract(transaction.to.address);
+							if (contract.interface) {
+								const result = contract.interface.parseLog(log);
+								if (result.args) {
+									const suspectedTokenId = result.args.id.toNumber();
+									if (result.args.value.toNumber() === 1 && suspectedTokenId < maxTransferTokenIdValue) {
+										transferMatchCount++;
+									}
+								}
+							}
 						}
 					}
 
-					// ERC-1155
+					// ERC-1155 - TransferBatch
 					else if (
 						(
 							// First param should be keckak256() of `TransferBatch(address,address,address,uint256[],uint256[])` event
@@ -243,11 +303,24 @@ const main = async () => {
 							// console.log('Contract: ' + transaction.to.address);
 							// console.log('topics[2] is sender address');
 		
-							console.log('ERC-1155 TransferBatch suspectedTokenId:');
-							console.log(log.topics);
-							console.log(log.inputData);
-							let result = contractInterface.parseTransaction({data: log.inputData});
-							console.log(result);
+							// console.log('ERC-1155 ('+transaction.to.address+') TransferBatch suspectedTokenId:');
+							// console.log(log.topics);
+							// console.log(log.data);
+
+							// Lookup contract
+							const contract = getContract(transaction.to.address);
+							if (contract.interface) {
+								const result = contract.interface.parseLog(log);
+								console.log(result);
+								if (result.args) {
+									console.log(result.args.ids);
+									console.log(result.args.values);
+									// const suspectedTokenId = result.args.ids;
+									// if (result.args.value.toNumber() === 1 && suspectedTokenId < maxTransferTokenIdValue) {
+									// 	transferMatchCount++;
+									// }
+								}
+							}
 							// const suspectedTokenId = decodeX(log.topics[4], "uint256");
 							// console.log(suspectedTokenId);
 
@@ -255,7 +328,7 @@ const main = async () => {
 							// if (suspectedTokenId < maxTransferTokenIdValue) {
 							// 	transferMatchCount++;
 							// }
-							transferMatchCount++;
+							// transferMatchCount++;
 						}
 					}
 				});
@@ -265,63 +338,38 @@ const main = async () => {
 					const existsWithId = scanERC721FreeMint.findIndex(address => address === transaction.to.address);
 					if (existsWithId < 0) {
 
-						// Lookup contract ABI
-						let contractABIRaw = getContractABI(transaction.to.address);
-						if (
-							!contractABIRaw
+						// Lookup contract
+						const contract = getContract(transaction.to.address);
+						if (contract.interface) {
+							let result = contract.interface.parseTransaction({data: transaction.inputData});
+							// console.log(result);
 
-							// Avoid API abuse
-							&& etherscanAPIIntervalRateCount < etherscanAPIIntervalRateLimitPerSecond
-						) {
-							contractABIRaw = requestContractABI(transaction.to.address);
-							etherscanAPIIntervalRateCount++;
-						}
+							let functionName = result.name.toLowerCase();
+							console.log('functionName: ' + functionName);
 
-						// Check `inputData` against ABI, for function name patterns (i.e. contains `mint`)
-						if (contractABIRaw) {
-							let contractABI;
-							try {
-								contractABI = JSON.parse(contractABIRaw);
-							} catch (err) {
-								console.error('ABI parse error: ' + transaction.to.address);
-								console.error(err);
-							}
-							if (contractABI) {
-								// console.log('inputData: ' + transaction.inputData);
-								const contractInterface = new ethers.utils.Interface(contractABI);
-								if (contractInterface) {
-									let result = contractInterface.parseTransaction({data: transaction.inputData});
-									// console.log(result);
+							const functionBlacklistResult = functionNameBlacklistPattern.findIndex(a => {
+								const test = functionName.indexOf(a)
+								return test >= 0
+							});
+							// console.log('functionBlacklistResult: ' + functionBlacklistResult);
+							if (functionBlacklistResult < 0) {
+								const functionWhitelistResult = functionNameWhitelistPattern.findIndex(a => {
+									const test = functionName.indexOf(a)
+									return test >= 0
+								});
+								// console.log('functionWhitelistResult: ' + functionWhitelistResult);
+								if (functionWhitelistResult >= 0) {
+									scanERC721FreeMintTransactions[scanERC721FreeMint.length] = 1;
+									scanERC721FreeMintTransactionTransfers[scanERC721FreeMint.length] = transferMatchCount;
 
-									let functionName = result.name.toLowerCase();
-									console.log('functionName: ' + functionName);
-
-									const functionBlacklistResult = functionNameBlacklistPattern.findIndex(a => {
-										const test = functionName.indexOf(a)
-										return test >= 0
-									});
-									// console.log('functionBlacklistResult: ' + functionBlacklistResult);
-									if (functionBlacklistResult < 0) {
-										const functionWhitelistResult = functionNameWhitelistPattern.findIndex(a => {
-											const test = functionName.indexOf(a)
-											return test >= 0
-										});
-										// console.log('functionWhitelistResult: ' + functionWhitelistResult);
-										if (functionWhitelistResult >= 0) {
-											scanERC721FreeMintTransactions[scanERC721FreeMint.length] = 1;
-											scanERC721FreeMintTransactionTransfers[scanERC721FreeMint.length] = transferMatchCount;
-
-											scanERC721FreeMint.push(transaction.to.address);
-											console.log('Matched: ' + transaction.to.address);
-										}
-									}
-								} else {
-									console.error('ABI parse error (ethers.js): ' + transaction.to.address);
+									scanERC721FreeMint.push(transaction.to.address);
+									console.log('Matched: ' + transaction.to.address);
 								}
 							}
 						} else {
-							console.error('ABI lookup failed: ' + transaction.to.address);
+							console.error('ABI parse error (ethers.js): ' + transaction.to.address);
 						}
+						
 					} else {
 						scanERC721FreeMintTransactions[existsWithId]++;
 						scanERC721FreeMintTransactionTransfers[existsWithId] += transferMatchCount;
