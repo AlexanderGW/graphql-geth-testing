@@ -186,6 +186,7 @@ const main = async () => {
 				number,
 				timestamp,
 				transactions {
+					hash,
 					from {
 						address
 					},
@@ -303,7 +304,8 @@ const main = async () => {
 							// console.log('Contract: ' + transaction.to.address);
 							// console.log('topics[2] is sender address');
 		
-							// console.log('ERC-1155 ('+transaction.to.address+') TransferBatch suspectedTokenId:');
+							console.log('ERC-1155 ('+transaction.to.address+') TransferBatch');
+							console.log('ERC-1155 ('+transaction.hash+') TransferBatch');
 							// console.log(log.topics);
 							// console.log(log.data);
 
@@ -313,8 +315,17 @@ const main = async () => {
 								const result = contract.interface.parseLog(log);
 								console.log(result);
 								if (result.args) {
-									console.log(result.args.ids);
-									console.log(result.args.values);
+									// console.log(result.args.ids);
+									result.args[3].forEach(element => {
+										console.log('id: ' + element);
+									});
+									result.args.ids.forEach(element => {
+										console.log('id: ' + element);
+									});
+									result.args[4].forEach(element => {
+										console.log('value: ' + element);
+									});
+									// console.log(result.args.values);
 									// const suspectedTokenId = result.args.ids;
 									// if (result.args.value.toNumber() === 1 && suspectedTokenId < maxTransferTokenIdValue) {
 									// 	transferMatchCount++;
