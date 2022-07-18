@@ -370,7 +370,12 @@ const main = async () => {
 					&& transferMatchCount
 					&& transferMatchCount <= maxTransfersPerTransaction
 				) {
-					const existsWithId = scanNFTFreeMint.findIndex(address => address === transaction.to.address);
+					const existsWithId = 
+						scanNFTFreeMint
+						.findIndex(
+							address =>
+								address === transaction.to.address
+						);
 					if (existsWithId < 0) {
 
 						// Lookup contract
@@ -385,10 +390,20 @@ const main = async () => {
 								let functionName = result.name.toLowerCase();
 								console.log('Function name: ' + functionName);
 
-								const functionBlacklistResult = functionNameBlacklistPattern.findIndex(a => functionName.indexOf(a) >= 0);
+								const functionBlacklistResult =
+									functionNameBlacklistPattern
+									.findIndex(
+										pattern =>
+											functionName.indexOf(pattern) >= 0
+									);
 								// console.log('functionBlacklistResult: ' + functionBlacklistResult);
 								if (functionBlacklistResult < 0) {
-									const functionWhitelistResult = functionNameWhitelistPattern.findIndex(a => functionName.indexOf(a) >= 0);
+									const functionWhitelistResult =
+										functionNameWhitelistPattern
+										.findIndex(
+											pattern =>
+												functionName.indexOf(pattern) >= 0
+										);
 									// console.log('functionWhitelistResult: ' + functionWhitelistResult);
 									if (functionWhitelistResult >= 0) {
 										
@@ -401,7 +416,7 @@ const main = async () => {
 												.findIndex(
 													pattern =>
 														result.functionFragment.inputs[paramIdx].name.indexOf(pattern) >= 0
-												)
+												);
 											
 											// Increase flag count if a match
 											if (functionParameterBlacklistResult >= 0)
