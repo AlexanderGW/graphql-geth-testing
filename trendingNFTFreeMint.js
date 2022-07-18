@@ -278,7 +278,14 @@ const main = async () => {
 								const result = contract.interface.parseLog(log);
 								if (result.args) {
 									const suspectedTokenId = result.args.id.toNumber();
-									if (result.args.value.toNumber() === 1 && suspectedTokenId < maxTransferTokenIdValue) {
+									if (
+
+										// The token ID is under `maxTransferTokenIdValue` 
+										result.args[3].toNumber() < maxTransferTokenIdValue
+
+										// Value is always 1 (unique NFT)
+										&& result.args[4].toNumber() === 1
+									) {
 										transferMatchCount++;
 									}
 								}
@@ -315,22 +322,35 @@ const main = async () => {
 								const result = contract.interface.parseLog(log);
 								console.log(result);
 								if (result.args) {
-									// console.log(result.args.ids);
-									result.args[3].forEach(element => {
-										console.log('id: ' + element);
+									let score = 0;
+
+									// The token ID is under `maxTransferTokenIdValue`
+									result.args[3].forEach(id => {
+										console.log('id: ' + id);
+										if (id < maxTransferTokenIdValue)
+											score++;
 									});
-									result.args.ids.forEach(element => {
-										console.log('id: ' + element);
-									});
-									result.args[4].forEach(element => {
-										console.log('value: ' + element);
+
+									// Value is always 1 (unique NFT)
+									result.args[4].forEach(value => {
+										console.log('value: ' + value);
+										if (value === 1)
+											score++;
 									});
 									// console.log(result.args.values);
 									// const suspectedTokenId = result.args.ids;
 									// if (result.args.value.toNumber() === 1 && suspectedTokenId < maxTransferTokenIdValue) {
 									// 	transferMatchCount++;
 									// }
+
+									console.log('score: ' + score);
+
+									// Require equal scores across `id` and `value`
+									if (score % 2 === 0)
+										transferMatchCount++;
 								}
+							} else {
+								console.error('Failed to interface contract: ' + transaction.to.address);
 							}
 							// const suspectedTokenId = decodeX(log.topics[4], "uint256");
 							// console.log(suspectedTokenId);
@@ -356,18 +376,12 @@ const main = async () => {
 							// console.log(result);
 
 							let functionName = result.name.toLowerCase();
-							console.log('functionName: ' + functionName);
+							console.log('Uncaught mint function name: ' + functionName);
 
-							const functionBlacklistResult = functionNameBlacklistPattern.findIndex(a => {
-								const test = functionName.indexOf(a)
-								return test >= 0
-							});
+							const functionBlacklistResult = functionNameBlacklistPattern.findIndex(a => functionName.indexOf(a) >= 0);
 							// console.log('functionBlacklistResult: ' + functionBlacklistResult);
 							if (functionBlacklistResult < 0) {
-								const functionWhitelistResult = functionNameWhitelistPattern.findIndex(a => {
-									const test = functionName.indexOf(a)
-									return test >= 0
-								});
+								const functionWhitelistResult = functionNameWhitelistPattern.findIndex(a => functionName.indexOf(a) >= 0);
 								// console.log('functionWhitelistResult: ' + functionWhitelistResult);
 								if (functionWhitelistResult >= 0) {
 									scanNFTFreeMintTransactions[scanNFTFreeMint.length] = 1;
