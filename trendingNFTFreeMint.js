@@ -219,6 +219,8 @@ const main = async () => {
 			if (isFreeMint) {
 				// console.log('Is a free mint? ' + isFreeMint);
 
+				let skipTransaction = true;
+
 				// For tracking the total number of matching transfers in the transaction
 				// Over `maxTransfersPerTransaction` will be ignored
 				let transferMatchCount = 0;
@@ -249,9 +251,10 @@ const main = async () => {
 							// console.log('ERC-721 suspectedTokenId: ' + suspectedTokenId);
 
 							// The token ID is under `maxTransferTokenIdValue`
-							if (suspectedTokenId < maxTransferTokenIdValue) {
-								transferMatchCount++;
-							}
+							if (suspectedTokenId < maxTransferTokenIdValue)
+								skipTransaction = false;
+							
+							transferMatchCount++;
 						}
 					}
 					
@@ -286,10 +289,12 @@ const main = async () => {
 										// Value is always 1 (unique NFT)
 										&& result.args[4].toNumber() === 1
 									) {
-										transferMatchCount++;
+										skipTransaction = false;
 									}
 								}
 							}
+
+							transferMatchCount++;
 						}
 					}
 
@@ -310,8 +315,8 @@ const main = async () => {
 							&& log.topics[3] === recipientByte32
 						) {
 		
-							console.log('ERC-1155 TransferBatch: '+transaction.to.address+')');
-							console.log('ERC-1155 TransferBatch: '+transaction.hash+')');
+							// console.log('ERC-1155 TransferBatch: '+transaction.to.address+')');
+							// console.log('ERC-1155 TransferBatch: '+transaction.hash+')');
 							// console.log(log.topics);
 							// console.log(log.data);
 
@@ -319,7 +324,7 @@ const main = async () => {
 							const contract = getContract(transaction.to.address);
 							if (contract.interface) {
 								const result = contract.interface.parseLog(log);
-								console.log(result);
+								// console.log(result);
 								if (result.args) {
 									let score = 0;
 
@@ -337,11 +342,11 @@ const main = async () => {
 											score++;
 									});
 
-									console.log('score: ' + score);
+									// console.log('score: ' + score);
 
 									// Require equal scores across `id` and `value`
 									if (score > 1 && score % 2 === 0)
-										transferMatchCount++;
+										skipTransaction = false;
 								}
 							} else {
 								console.error('Failed to interface contract: ' + transaction.to.address);
@@ -353,13 +358,18 @@ const main = async () => {
 							// if (suspectedTokenId < maxTransferTokenIdValue) {
 							// 	transferMatchCount++;
 							// }
-							// transferMatchCount++;
+
+							transferMatchCount++;
 						}
 					}
 				});
 
 				// Ignore transactions with more than `maxTransfersPerTransaction` transfers
-				if (transferMatchCount && transferMatchCount <= maxTransfersPerTransaction) {
+				if (
+					!skipTransaction
+					&& transferMatchCount
+					&& transferMatchCount <= maxTransfersPerTransaction
+				) {
 					const existsWithId = scanNFTFreeMint.findIndex(address => address === transaction.to.address);
 					if (existsWithId < 0) {
 
@@ -541,3 +551,58 @@ main();
 setInterval(() => {
 	main();
 }, intervalCheckMilliseconds);
+
+// let hash = '0x4cc79cb508817c0dde321e9578d748d643574676ae9353ad9d2f342a1cada4dc';
+
+// let resp = request(
+// 	GETH_GRAPHQL_ENDPOINT,
+// 	`{transaction(hash: "${hash}") {
+// 		hash,
+// 		from {
+// 			address
+// 		},
+// 		to {
+// 			address
+// 		},
+// 		value,
+// 		inputData,
+// 		logs {
+// 			index,
+// 			topics,
+// 			data
+// 		}
+// 	}}`
+// ).then(res => {
+// 	// console.log(res.transaction);
+// 	res.transaction.logs.forEach(log => {
+// 		const contract = getContract(res.transaction.to.address);
+// 		if (contract.interface) {
+// 			let result = contract.interface.parseTransaction({data: res.transaction.inputData});
+// 			console.log(result);
+// 			if (result.functionFragment.type === 'function') {
+// 				let flags = 0;
+// 				for (const paramIdx in result.functionFragment.inputs) {
+// 					// console.log(result.functionFragment.inputs[paramIdx].name);
+// 					const functionParameterBlacklistResult =
+// 						functionParameterBlacklistPattern
+// 						.findIndex(
+// 							pattern =>
+// 								result.functionFragment.inputs[paramIdx].name.indexOf(pattern) >= 0
+// 						)
+// 					if (functionParameterBlacklistResult >= 0)
+// 						flags++;
+// 				};
+// 	console.log(flags);
+// 				if (!flags)
+// 					transferMatchCount++;
+// 			}
+// 		}
+// 	});
+// }).catch(err => {
+// 	console.log(err);
+// });
+
+
+
+
+
