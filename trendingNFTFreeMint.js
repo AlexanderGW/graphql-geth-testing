@@ -233,15 +233,12 @@ const main = async () => {
 						// Data is empty
 						&& log.data === '0x'
 					) {
-						// console.log('Matching `Transfer` event signature; with `0x` log data');
-						// console.log('topics[1] is 0x0 address');
-		
 						const recipientByte32 = padToBytes32(transaction.from.address);
 						// console.log('recipientByte32: ' + recipientByte32);
-						if (log.topics[2] === recipientByte32) {
-							// console.log('Pattern match: `NFTFreeMint`');
-							// console.log('Contract: ' + transaction.to.address);
-							// console.log('topics[2] is sender address');
+						if (
+							recipientByte32 !== '0x000000000000000000000000000000000000000000000000000000000000dead'
+							&& log.topics[2] === recipientByte32
+						) {
 		
 							const suspectedTokenId = decodeX(log.topics[3], "uint256");
 							// console.log(log.topics[3]);
@@ -267,10 +264,11 @@ const main = async () => {
 		
 						const recipientByte32 = padToBytes32(transaction.from.address);
 						// console.log('recipientByte32: ' + recipientByte32);
-						if (log.topics[1] === recipientByte32 && log.topics[3] === recipientByte32) {
-							// console.log('Pattern match: `NFTFreeMint`');
-							// console.log('Contract: ' + transaction.to.address);
-							// console.log('topics[2] is sender address');
+						if (
+							recipientByte32 !== '0x000000000000000000000000000000000000000000000000000000000000dead'
+							&& log.topics[1] === recipientByte32
+							&& log.topics[3] === recipientByte32
+						) {
 		
 							// console.log('ERC-1155 ('+transaction.to.address+') TransferSingle suspectedTokenId:');
 							const contract = getContract(transaction.to.address);
@@ -306,13 +304,14 @@ const main = async () => {
 		
 						const recipientByte32 = padToBytes32(transaction.from.address);
 						// console.log('recipientByte32: ' + recipientByte32);
-						if (log.topics[1] === recipientByte32 && log.topics[3] === recipientByte32) {
-							// console.log('Pattern match: `NFTFreeMint`');
-							// console.log('Contract: ' + transaction.to.address);
-							// console.log('topics[2] is sender address');
+						if (
+							recipientByte32 !== '0x000000000000000000000000000000000000000000000000000000000000dead'
+							&& log.topics[1] === recipientByte32
+							&& log.topics[3] === recipientByte32
+						) {
 		
-							console.log('ERC-1155 ('+transaction.to.address+') TransferBatch');
-							console.log('ERC-1155 ('+transaction.hash+') TransferBatch');
+							console.log('ERC-1155 TransferBatch: '+transaction.to.address+')');
+							console.log('ERC-1155 TransferBatch: '+transaction.hash+')');
 							// console.log(log.topics);
 							// console.log(log.data);
 
@@ -327,26 +326,21 @@ const main = async () => {
 									// The token ID is under `maxTransferTokenIdValue`
 									result.args[3].forEach(id => {
 										console.log('id: ' + id);
-										if (id < maxTransferTokenIdValue)
+										if (id.toNumber() < maxTransferTokenIdValue)
 											score++;
 									});
 
 									// Value is always 1 (unique NFT)
 									result.args[4].forEach(value => {
 										console.log('value: ' + value);
-										if (value === 1)
+										if (value.toNumber() === 1)
 											score++;
 									});
-									// console.log(result.args.values);
-									// const suspectedTokenId = result.args.ids;
-									// if (result.args.value.toNumber() === 1 && suspectedTokenId < maxTransferTokenIdValue) {
-									// 	transferMatchCount++;
-									// }
 
 									console.log('score: ' + score);
 
 									// Require equal scores across `id` and `value`
-									if (score % 2 === 0)
+									if (score > 1 && score % 2 === 0)
 										transferMatchCount++;
 								}
 							} else {
