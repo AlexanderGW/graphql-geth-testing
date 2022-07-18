@@ -38,6 +38,10 @@ const functionNameBlacklistPattern = [
 	'private', 'whitelist'
 ];
 
+const functionParameterBlacklistPattern = [
+	'sign', 'root'
+];
+
 const padToBytes32 = (x) => {
 	return ethers.utils.hexlify(
 		ethers.utils.zeroPad("0x" + x.replace("0x", ""), 32)
@@ -253,10 +257,8 @@ const main = async () => {
 					
 					// ERC-1155 - TransferSingle
 					else if (
-						(
-							// First param should be keckak256() of `TransferSingle(address,address,address,uint256,uint256)` event
-							log.topics[0] === '0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62'
-						)
+						// First param should be keckak256() of `TransferSingle(address,address,address,uint256,uint256)` event
+						log.topics[0] === '0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62'
 
 						// From null 0x0
 						&& log.topics[2] === '0x0000000000000000000000000000000000000000000000000000000000000000'
@@ -293,10 +295,8 @@ const main = async () => {
 
 					// ERC-1155 - TransferBatch
 					else if (
-						(
-							// First param should be keckak256() of `TransferBatch(address,address,address,uint256[],uint256[])` event
-							log.topics[0] === '0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb'
-						)
+						// First param should be keckak256() of `TransferBatch(address,address,address,uint256[],uint256[])` event
+						log.topics[0] === '0x4a39dc06d4c0dbc64b70af90fd698a233a518aa5d07e595d983b8c0526c8f7fb'
 
 						// From null 0x0
 						&& log.topics[2] === '0x0000000000000000000000000000000000000000000000000000000000000000'
