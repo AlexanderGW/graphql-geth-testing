@@ -325,14 +325,14 @@ const main = async () => {
 
 									// The token ID is under `maxTransferTokenIdValue`
 									result.args[3].forEach(id => {
-										console.log('id: ' + id);
+										// console.log('id: ' + id);
 										if (id.toNumber() < maxTransferTokenIdValue)
 											score++;
 									});
 
 									// Value is always 1 (unique NFT)
 									result.args[4].forEach(value => {
-										console.log('value: ' + value);
+										// console.log('value: ' + value);
 										if (value.toNumber() === 1)
 											score++;
 									});
@@ -369,20 +369,44 @@ const main = async () => {
 							let result = contract.interface.parseTransaction({data: transaction.inputData});
 							// console.log(result);
 
-							let functionName = result.name.toLowerCase();
-							console.log('Uncaught mint function name: ' + functionName);
+							// Input data is a function
+							// console.log(result.functionFragment);
+							if (result.functionFragment.type === 'function') {
+								let functionName = result.name.toLowerCase();
+								console.log('Function name: ' + functionName);
 
-							const functionBlacklistResult = functionNameBlacklistPattern.findIndex(a => functionName.indexOf(a) >= 0);
-							// console.log('functionBlacklistResult: ' + functionBlacklistResult);
-							if (functionBlacklistResult < 0) {
-								const functionWhitelistResult = functionNameWhitelistPattern.findIndex(a => functionName.indexOf(a) >= 0);
-								// console.log('functionWhitelistResult: ' + functionWhitelistResult);
-								if (functionWhitelistResult >= 0) {
-									scanNFTFreeMintTransactions[scanNFTFreeMint.length] = 1;
-									scanNFTFreeMintTransactionTransfers[scanNFTFreeMint.length] = transferMatchCount;
+								const functionBlacklistResult = functionNameBlacklistPattern.findIndex(a => functionName.indexOf(a) >= 0);
+								// console.log('functionBlacklistResult: ' + functionBlacklistResult);
+								if (functionBlacklistResult < 0) {
+									const functionWhitelistResult = functionNameWhitelistPattern.findIndex(a => functionName.indexOf(a) >= 0);
+									// console.log('functionWhitelistResult: ' + functionWhitelistResult);
+									if (functionWhitelistResult >= 0) {
+										
+										// Check function parameters for blacklist patterns
+										let paramFlags = 0;
+										for (const paramIdx in result.functionFragment.inputs) {
+											// console.log(result.functionFragment.inputs[paramIdx].name);
+											const functionParameterBlacklistResult =
+												functionParameterBlacklistPattern
+												.findIndex(
+													pattern =>
+														result.functionFragment.inputs[paramIdx].name.indexOf(pattern) >= 0
+												)
+											
+											// Increase flag count if a match
+											if (functionParameterBlacklistResult >= 0)
+												paramFlags++;
+										};
 
-									scanNFTFreeMint.push(transaction.to.address);
-									console.log('Matched: ' + transaction.to.address);
+										// console.log(paramFlags);
+										if (!paramFlags) {
+											scanNFTFreeMintTransactions[scanNFTFreeMint.length] = 1;
+											scanNFTFreeMintTransactionTransfers[scanNFTFreeMint.length] = transferMatchCount;
+
+											scanNFTFreeMint.push(transaction.to.address);
+											console.log('Matched: ' + transaction.to.address);
+										}
+									}
 								}
 							}
 						} else {
