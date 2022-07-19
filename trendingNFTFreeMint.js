@@ -39,7 +39,7 @@ const functionNameBlacklistPattern = [
 ];
 
 const functionParameterBlacklistPattern = [
-	'sign', 'root', 'proof'
+	'sign', 'root', 'proof', 'whitelist'
 ];
 
 const padToBytes32 = (x) => {
