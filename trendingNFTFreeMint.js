@@ -278,19 +278,31 @@ const main = async () => {
 							// console.log('ERC-1155 ('+transaction.to.address+') TransferSingle suspectedTokenId:');
 							const contract = getContract(transaction.to.address);
 							if (contract.interface) {
-								const result = contract.interface.parseLog(log);
-								if (result.args) {
-									const suspectedTokenId = result.args.id.toNumber();
-									if (
+								try {
+									const result = contract.interface.parseLog(log);
+									if (result.args) {
+										let suspectedTokenId = 0;
+										try {
+											suspectedTokenId = result.args[3].toNumber()
+										} catch (err) {
+											console.error(`Invalid TransferSingle parameter 'id' value. Skip...`);
+											console.error(err);
+										}
+										if (
 
-										// The token ID is under `maxTransferTokenIdValue` 
-										result.args[3].toNumber() < maxTransferTokenIdValue
+											// The token ID is under `maxTransferTokenIdValue` 
+											suspectedTokenId && suspectedTokenId < maxTransferTokenIdValue
 
-										// Value is always 1 (unique NFT)
-										&& result.args[4].toNumber() === 1
-									) {
-										skipTransaction = false;
+											// Value is always 1 (unique NFT)
+											&& result.args[4].toNumber() === 1
+										) {
+											skipTransaction = false;
+										}
 									}
+								} catch (err) {
+									console.error(`parseLog failed`);
+									console.error(err);
+									console.info(contract.interface.parseLog(log));
 								}
 							}
 
@@ -370,12 +382,21 @@ const main = async () => {
 					&& transferMatchCount
 					&& transferMatchCount <= maxTransfersPerTransaction
 				) {
-					const existsWithId = 
-						scanNFTFreeMint
-						.findIndex(
-							address =>
-								address === transaction.to.address
-						);
+					let existsWithId = false;
+
+					try {
+						existsWithId = 
+							scanNFTFreeMint
+							.findIndex(
+								address =>
+									address === transaction.to.address
+							);
+					} catch (err) {
+						console.error(`Something wrong with transaction?`);
+						console.error(err);
+						console.log(transaction);
+					}
+
 					if (existsWithId < 0) {
 
 						// Lookup contract
