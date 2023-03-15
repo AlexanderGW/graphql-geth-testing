@@ -181,6 +181,7 @@ const main = async () => {
 	let currentBlockHeight = parseInt(resp.block.number);
 	if (currentBlockHeight > lastBlockHeight) {
 		lastBlockHeight = currentBlockHeight;
+		console.log('Highest block: ' + lastBlockHeight);
 
 		let workingBlockHeight = lastBlockHeight - 1;
 
@@ -208,7 +209,7 @@ const main = async () => {
 			}}`
 		);
 	
-		// console.log(resp.block);
+		// console.log(resp.block.transactions);
 		console.log('Scanning block: ' + resp.block.number);
 	
 		// return;
@@ -267,6 +268,7 @@ const main = async () => {
 						&& log.topics[2] === '0x0000000000000000000000000000000000000000000000000000000000000000'
 					) {
 		
+						// Unburned
 						const recipientByte32 = padToBytes32(transaction.from.address);
 						// console.log('recipientByte32: ' + recipientByte32);
 						if (
@@ -275,9 +277,9 @@ const main = async () => {
 							&& log.topics[3] === recipientByte32
 						) {
 		
-							// console.log('ERC-1155 ('+transaction.to.address+') TransferSingle suspectedTokenId:');
+							console.log('ERC-1155 ('+transaction.to.address+') TransferSingle suspectedTokenId:');
 							const contract = getContract(transaction.to.address);
-							if (contract.interface) {
+							if (contract && contract.interface) {
 								try {
 									const result = contract.interface.parseLog(log);
 									if (result.args) {
@@ -334,31 +336,37 @@ const main = async () => {
 
 							// Lookup contract
 							const contract = getContract(transaction.to.address);
-							if (contract.interface) {
-								const result = contract.interface.parseLog(log);
-								// console.log(result);
-								if (result.args) {
-									let score = 0;
+							if (contract && contract.interface) {
+								try {
+									const result = contract.interface.parseLog(log);
+									// console.log(result);
+									if (result.args) {
+										let score = 0;
 
-									// The token ID is under `maxTransferTokenIdValue`
-									result.args[3].forEach(id => {
-										// console.log('id: ' + id);
-										if (id.toNumber() < maxTransferTokenIdValue)
-											score++;
-									});
+										// The token ID is under `maxTransferTokenIdValue`
+										result.args[3].forEach(id => {
+											// console.log('id: ' + id);
+											if (id.toNumber() < maxTransferTokenIdValue)
+												score++;
+										});
 
-									// Value is always 1 (unique NFT)
-									result.args[4].forEach(value => {
-										// console.log('value: ' + value);
-										if (value.toNumber() === 1)
-											score++;
-									});
+										// Value is always 1 (unique NFT)
+										result.args[4].forEach(value => {
+											// console.log('value: ' + value);
+											if (value.toNumber() === 1)
+												score++;
+										});
 
-									// console.log('score: ' + score);
+										// console.log('score: ' + score);
 
-									// Require equal scores across `id` and `value`
-									if (score > 1 && score % 2 === 0)
-										skipTransaction = false;
+										// Require equal scores across `id` and `value`
+										if (score > 1 && score % 2 === 0)
+											skipTransaction = false;
+									}
+								} catch (err) {
+									console.error(`parseLog failed`);
+									console.error(err);
+									console.info(contract.interface.parseLog(log));
 								}
 							} else {
 								console.error('Failed to interface contract: ' + transaction.to.address);
